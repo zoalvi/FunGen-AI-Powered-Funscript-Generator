@@ -107,3 +107,131 @@ class AppGuiLogic:
             image_data[:] = col_colors[np.newaxis, :, :]
 
         return image_data
+
+
+    def _handle_global_shortcuts(self):
+        if not imgui.is_window_focused(imgui.FOCUS_ROOT_WINDOW) and not self.gui.is_any_timeline_hovered:
+            return
+
+        io = imgui.get_io()
+        shift = io.key_shift
+        ctrl = io.key_ctrl
+        alt = io.key_alt
+
+        if not self.gui.is_any_item_active():
+            self._handle_save_project_shortcut(ctrl)
+            self._handle_arrow_navigation(shift, ctrl)
+            self._handle_zoom(ctrl)
+            self._handle_misc_shortcuts(ctrl, shift)
+            self._handle_funscript_generation()
+
+        self._handle_playback_control(shift)
+        self._handle_action_point_manipulation(shift, ctrl, alt)
+
+    def _handle_save_project_shortcut(self, ctrl):
+        if ctrl and imgui.is_key_pressed(imgui.KEY_S):
+            self.app.queue_background_task(self.app.save_project)
+
+    def _handle_arrow_navigation(self, shift, ctrl):
+        if imgui.is_key_pressed(imgui.KEY_UP_ARROW):
+            self._handle_up_down_arrows(shift, True)
+        elif imgui.is_key_pressed(imgui.KEY_DOWN_ARROW):
+            self._handle_up_down_arrows(shift, False)
+        elif imgui.is_key_pressed(imgui.KEY_LEFT_ARROW):
+            self._handle_left_right_arrows(shift, ctrl, False)
+        elif imgui.is_key_pressed(imgui.KEY_RIGHT_ARROW):
+            self._handle_left_right_arrows(shift, ctrl, True)
+
+    def _handle_up_down_arrows(self, shift, is_up):
+        delta = 10 if shift else 1
+        if is_up:
+            self.app.change_current_position(delta)
+        else:
+            self.app.change_current_position(-delta)
+
+    def _handle_left_right_arrows(self, shift, ctrl, is_right):
+        if is_right:
+            if ctrl:
+                self.app.go_to_next_action(shift)
+            else:
+                self.app.change_current_frame(1)
+        else:
+            if ctrl:
+                self.app.go_to_previous_action(shift)
+            else:
+                self.app.change_current_frame(-1)
+
+    def _handle_zoom(self, ctrl):
+        if not ctrl:
+            if imgui.is_key_pressed(imgui.KEY_PAGE_UP):
+                self.app.zoom_in(0.5)
+            elif imgui.is_key_pressed(imgui.KEY_PAGE_DOWN):
+                self.app.zoom_out(0.5)
+
+    def _handle_misc_shortcuts(self, ctrl, shift):
+        if imgui.is_key_pressed(imgui.KEY_HOME):
+            self.app.go_to_first_frame()
+        elif imgui.is_key_pressed(imgui.KEY_END):
+            self.app.go_to_last_frame()
+        elif imgui.is_key_pressed(imgui.KEY_F) and not ctrl and not shift:
+            self.app.toggle_funscript_points()
+        elif imgui.is_key_pressed(imgui.KEY_V) and not ctrl and not shift:
+            self.app.toggle_video_points()
+
+    def _handle_funscript_generation(self):
+        if imgui.is_key_pressed(imgui.KEY_G):
+            self.app.generate_funscript()
+
+    def _handle_playback_control(self, shift):
+        if imgui.is_key_pressed(imgui.KEY_SPACE):
+            if shift:
+                self.app.toggle_playback_smooth()
+            else:
+                self.app.toggle_playback()
+
+    def _handle_action_point_manipulation(self, shift, ctrl, alt):
+        if imgui.is_key_pressed(imgui.KEY_ENTER):
+            self._insert_or_delete_action_point(alt)
+        elif imgui.is_key_pressed(imgui.KEY_DELETE):
+            self.app.delete_action_at_current_frame()
+        elif imgui.is_key_pressed(imgui.KEY_C):
+            self.app.copy_points_in_selection()
+        elif imgui.is_key_pressed(imgui.KEY_X):
+            self.app.cut_points_in_selection()
+        elif imgui.is_key_pressed(imgui.KEY_V) and ctrl:
+            self.app.paste_points_at_current_frame()
+        elif imgui.is_key_pressed(imgui.KEY_T):
+            self.app.toggle_selection_mode()
+        elif imgui.is_key_pressed(imgui.KEY_Q):
+            self._move_action_point_position(shift, True)
+        elif imgui.is_key_pressed(imgui.KEY_A):
+            self._move_action_point_position(shift, False)
+        elif imgui.is_key_pressed(imgui.KEY_W):
+            self._move_action_point_time(shift, True)
+        elif imgui.is_key_pressed(imgui.KEY_S) and not ctrl:
+            self._move_action_point_time(shift, False)
+        elif imgui.is_key_pressed(imgui.KEY_E):
+            self._toggle_action_point_type()
+
+    def _insert_or_delete_action_point(self, alt):
+        if self.app.is_action_at_current_frame():
+            self.app.delete_action_at_current_frame()
+        else:
+            self.app.add_action_at_current_frame(alt)
+
+    def _move_action_point_position(self, shift, is_up):
+        delta = 10 if shift else 1
+        if is_up:
+            self.app.move_action_position(delta)
+        else:
+            self.app.move_action_position(-delta)
+
+    def _move_action_point_time(self, shift, is_forward):
+        delta = 100 if shift else 10
+        if is_forward:
+            self.app.move_action_time(delta)
+        else:
+            self.app.move_action_time(-delta)
+
+    def _toggle_action_point_type(self):
+        self.app.toggle_action_type()
